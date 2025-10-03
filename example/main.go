@@ -291,9 +291,10 @@ func retryAndTimeoutExample() {
 func contextAndCancellationExample() {
 	fmt.Println("9. Context and Cancellation:")
 
+	fmt.Println("   a. Using SetContext on Request level:")
 	client := cumi.NewClient()
 
-	// Create a context with timeout
+	// Create a context with timeout for individual request
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
@@ -302,10 +303,41 @@ func contextAndCancellationExample() {
 		Get("https://httpbin.org/delay/5")
 
 	if err != nil {
-		fmt.Printf("   Context timeout error: %v\n", err)
+		fmt.Printf("      Context timeout error: %v\n", err)
 	} else {
-		fmt.Printf("   Unexpected success: %s\n", resp.Status)
+		fmt.Printf("      Unexpected success: %s\n", resp.Status)
 	}
+
+	fmt.Println("   b. Using SetContext on Client level:")
+	// Create a client with default context
+	clientCtx, clientCancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer clientCancel()
+
+	clientWithContext := cumi.NewClient().SetContext(clientCtx)
+
+	// All requests from this client will use the client's context by default
+	resp2, err2 := clientWithContext.Http().Get("https://httpbin.org/delay/5")
+	if err2 != nil {
+		fmt.Printf("      Client context timeout error: %v\n", err2)
+	} else {
+		fmt.Printf("      Unexpected success: %s\n", resp2.Status)
+	}
+
+	fmt.Println("   c. Request context overrides Client context:")
+	// Request-level context will override client-level context
+	shortCtx, shortCancel := context.WithTimeout(context.Background(), 1*time.Second)
+	defer shortCancel()
+
+	resp3, err3 := clientWithContext.Http().
+		SetContext(shortCtx).
+		Get("https://httpbin.org/delay/5")
+
+	if err3 != nil {
+		fmt.Printf("      Request context (1s) timeout error: %v\n", err3)
+	} else {
+		fmt.Printf("      Unexpected success: %s\n", resp3.Status)
+	}
+
 	fmt.Println()
 }
 

@@ -42,6 +42,7 @@ type Client struct {
 	onError           ErrorHook
 	commonErrorResult interface{}
 	resultChecker     func(*Response) ResultState
+	ctx               context.Context
 }
 
 // RequestMiddleware defines a function that can modify a request before it's sent
@@ -183,6 +184,12 @@ func NewClientWithConfig(config *Config) *Client {
 
 // R creates a new request
 func (c *Client) Http() *Request {
+	// Use client's context if set, otherwise use background context
+	ctx := c.ctx
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
 	return &Request{
 		client:      c,
 		headers:     make(http.Header),
@@ -190,7 +197,7 @@ func (c *Client) Http() *Request {
 		pathParams:  make(map[string]string),
 		formData:    make(url.Values),
 		cookies:     []*http.Cookie{},
-		ctx:         context.Background(),
+		ctx:         ctx,
 	}
 }
 
@@ -327,6 +334,7 @@ func (c *Client) Clone() *Client {
 		onError:           c.onError,
 		commonErrorResult: c.commonErrorResult,
 		resultChecker:     c.resultChecker,
+		ctx:               c.ctx,
 	}
 }
 
@@ -340,6 +348,12 @@ func (c *Client) SetBaseURL(baseURL string) *Client {
 func (c *Client) SetTimeout(timeout time.Duration) *Client {
 	c.timeout = timeout
 	c.httpClient.Timeout = timeout
+	return c
+}
+
+// SetContext sets the default context for all requests created from this client
+func (c *Client) SetContext(ctx context.Context) *Client {
+	c.ctx = ctx
 	return c
 }
 
