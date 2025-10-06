@@ -13,6 +13,7 @@ import (
 	"net/http/cookiejar"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	"go.opentelemetry.io/otel/codes"
@@ -21,6 +22,7 @@ import (
 
 // Client represents an HTTP client with chainable methods
 type Client struct {
+	mu                sync.RWMutex
 	httpClient        *http.Client
 	baseURL           string
 	timeout           time.Duration
@@ -187,6 +189,9 @@ func NewClientWithConfig(config *Config) *Client {
 
 // R creates a new request
 func (c *Client) Http() *Request {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
 	// Use client's context if set, otherwise use background context
 	ctx := c.ctx
 	if ctx == nil {
@@ -343,12 +348,16 @@ func (c *Client) Clone() *Client {
 
 // SetBaseURL sets the base URL for the client
 func (c *Client) SetBaseURL(baseURL string) *Client {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	c.baseURL = strings.TrimRight(baseURL, "/")
 	return c
 }
 
 // SetTimeout sets the request timeout
 func (c *Client) SetTimeout(timeout time.Duration) *Client {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	c.timeout = timeout
 	c.httpClient.Timeout = timeout
 	return c
@@ -356,24 +365,32 @@ func (c *Client) SetTimeout(timeout time.Duration) *Client {
 
 // SetContext sets the default context for all requests created from this client
 func (c *Client) SetContext(ctx context.Context) *Client {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	c.ctx = ctx
 	return c
 }
 
 // SetUserAgent sets the User-Agent header for all requests
 func (c *Client) SetUserAgent(userAgent string) *Client {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	c.userAgent = userAgent
 	return c
 }
 
 // SetCommonHeader sets a header that will be added to all requests
 func (c *Client) SetCommonHeader(key, value string) *Client {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	c.headers.Set(key, value)
 	return c
 }
 
 // SetCommonHeaders sets multiple headers from a map
 func (c *Client) SetCommonHeaders(headers map[string]string) *Client {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	for k, v := range headers {
 		c.headers.Set(k, v)
 	}
@@ -382,12 +399,16 @@ func (c *Client) SetCommonHeaders(headers map[string]string) *Client {
 
 // SetCommonQueryParam sets a query parameter that will be added to all requests
 func (c *Client) SetCommonQueryParam(key, value string) *Client {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	c.queryParams.Set(key, value)
 	return c
 }
 
 // SetCommonQueryParams sets multiple query parameters from a map
 func (c *Client) SetCommonQueryParams(params map[string]string) *Client {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	for k, v := range params {
 		c.queryParams.Set(k, v)
 	}
@@ -396,6 +417,8 @@ func (c *Client) SetCommonQueryParams(params map[string]string) *Client {
 
 // SetCommonPathParam sets a path parameter that will be used for URL replacement
 func (c *Client) SetCommonPathParam(key, value string) *Client {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	if c.pathParams == nil {
 		c.pathParams = make(map[string]string)
 	}
@@ -405,6 +428,8 @@ func (c *Client) SetCommonPathParam(key, value string) *Client {
 
 // SetCommonPathParams sets multiple path parameters from a map
 func (c *Client) SetCommonPathParams(params map[string]string) *Client {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	if c.pathParams == nil {
 		c.pathParams = make(map[string]string)
 	}
@@ -416,6 +441,8 @@ func (c *Client) SetCommonPathParams(params map[string]string) *Client {
 
 // SetCommonFormData sets form data that will be added to all requests
 func (c *Client) SetCommonFormData(data map[string]string) *Client {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	for k, v := range data {
 		c.formData.Set(k, v)
 	}
@@ -424,18 +451,24 @@ func (c *Client) SetCommonFormData(data map[string]string) *Client {
 
 // SetCommonCookies sets cookies that will be added to all requests
 func (c *Client) SetCommonCookies(cookies ...*http.Cookie) *Client {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	c.cookies = append(c.cookies, cookies...)
 	return c
 }
 
 // EnableDebug enables debug mode
 func (c *Client) EnableDebug() *Client {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	c.debug = true
 	return c
 }
 
 // DisableDebug disables debug mode
 func (c *Client) DisableDebug() *Client {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	c.debug = false
 	return c
 }
@@ -447,18 +480,24 @@ func (c *Client) DevMode() *Client {
 
 // EnableAllowGetMethodPayload allows GET requests to have a body
 func (c *Client) EnableAllowGetMethodPayload() *Client {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	c.allowGetPayload = true
 	return c
 }
 
 // DisableAllowGetMethodPayload disallows GET requests to have a body
 func (c *Client) DisableAllowGetMethodPayload() *Client {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	c.allowGetPayload = false
 	return c
 }
 
 // SetTLSClientConfig sets the TLS configuration
 func (c *Client) SetTLSClientConfig(config *tls.Config) *Client {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	if transport, ok := c.httpClient.Transport.(*http.Transport); ok {
 		transport.TLSClientConfig = config
 	}
@@ -467,6 +506,8 @@ func (c *Client) SetTLSClientConfig(config *tls.Config) *Client {
 
 // EnableInsecureSkipVerify enables skipping TLS certificate verification
 func (c *Client) EnableInsecureSkipVerify() *Client {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	if transport, ok := c.httpClient.Transport.(*http.Transport); ok {
 		if transport.TLSClientConfig == nil {
 			transport.TLSClientConfig = &tls.Config{}
@@ -478,6 +519,8 @@ func (c *Client) EnableInsecureSkipVerify() *Client {
 
 // DisableInsecureSkipVerify disables skipping TLS certificate verification
 func (c *Client) DisableInsecureSkipVerify() *Client {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	if transport, ok := c.httpClient.Transport.(*http.Transport); ok {
 		if transport.TLSClientConfig == nil {
 			transport.TLSClientConfig = &tls.Config{}
@@ -489,6 +532,8 @@ func (c *Client) DisableInsecureSkipVerify() *Client {
 
 // SetProxy sets the proxy function
 func (c *Client) SetProxy(proxy func(*http.Request) (*url.URL, error)) *Client {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	if transport, ok := c.httpClient.Transport.(*http.Transport); ok {
 		transport.Proxy = proxy
 	}
@@ -497,72 +542,96 @@ func (c *Client) SetProxy(proxy func(*http.Request) (*url.URL, error)) *Client {
 
 // SetRetryCount sets the number of retry attempts
 func (c *Client) SetRetryCount(count int) *Client {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	c.retryCount = count
 	return c
 }
 
 // SetRetryInterval sets the interval between retries
 func (c *Client) SetRetryInterval(interval time.Duration) *Client {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	c.retryInterval = interval
 	return c
 }
 
 // SetRetryCondition sets the condition for when to retry
 func (c *Client) SetRetryCondition(condition RetryConditionFunc) *Client {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	c.retryCondition = condition
 	return c
 }
 
 // SetCommonErrorResult sets the common error result type
 func (c *Client) SetCommonErrorResult(err interface{}) *Client {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	c.commonErrorResult = err
 	return c
 }
 
 // SetResultStateCheckFunc sets the function to check result state
 func (c *Client) SetResultStateCheckFunc(fn func(*Response) ResultState) *Client {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	c.resultChecker = fn
 	return c
 }
 
 // OnError sets the error handler
 func (c *Client) OnError(handler ErrorHook) *Client {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	c.onError = handler
 	return c
 }
 
 // OnBeforeRequest adds a middleware that runs before sending the request
 func (c *Client) OnBeforeRequest(middleware RequestMiddleware) *Client {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	c.beforeRequest = append(c.beforeRequest, middleware)
 	return c
 }
 
 // OnAfterResponse adds a middleware that runs after receiving the response
 func (c *Client) OnAfterResponse(middleware ResponseMiddleware) *Client {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	c.afterResponse = append(c.afterResponse, middleware)
 	return c
 }
 
 // SetJSONMarshal sets the JSON marshal function
 func (c *Client) SetJSONMarshal(fn func(v interface{}) ([]byte, error)) *Client {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	c.jsonMarshal = fn
 	return c
 }
 
 // SetJSONUnmarshal sets the JSON unmarshal function
 func (c *Client) SetJSONUnmarshal(fn func(data []byte, v interface{}) error) *Client {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	c.jsonUnmarshal = fn
 	return c
 }
 
 // SetXMLMarshal sets the XML marshal function
 func (c *Client) SetXMLMarshal(fn func(v interface{}) ([]byte, error)) *Client {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	c.xmlMarshal = fn
 	return c
 }
 
 // SetXMLUnmarshal sets the XML unmarshal function
 func (c *Client) SetXMLUnmarshal(fn func(data []byte, v interface{}) error) *Client {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	c.xmlUnmarshal = fn
 	return c
 }
