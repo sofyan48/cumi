@@ -90,6 +90,7 @@ if resp.IsSuccess() {
 - **Query parameters and path parameters**
 - **Cookie management**
 - **Custom headers** per request or globally
+- **Tracing support** with OpenTelemetry integration
 
 ## Examples
 
