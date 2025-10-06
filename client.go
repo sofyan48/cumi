@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
 )
 
 // Client represents an HTTP client with chainable methods
@@ -700,7 +701,7 @@ func (c *Client) execute(req *Request) (*Response, error) {
 		// Use the existing context (from SetContext or client context) as parent
 		parentCtx := req.Context()
 		var tracingCtx context.Context
-		tracingCtx, span := req.tracer.Start(parentCtx, req.spanName)
+		tracingCtx, span := req.tracer.Start(parentCtx, req.spanName, trace.WithSpanKind(trace.SpanKindClient))
 		// Update request context to include tracing context
 		req.ctx = tracingCtx
 		defer func() {
