@@ -14,6 +14,8 @@ import (
 	"net/url"
 	"strings"
 	"time"
+
+	"go.opentelemetry.io/otel/codes"
 )
 
 // Client represents an HTTP client with chainable methods
@@ -693,6 +695,27 @@ func (c *Client) prepareRequest(req *Request) (*http.Request, error) {
 func (c *Client) execute(req *Request) (*Response, error) {
 	var lastErr error
 	var resp *Response
+
+	if req.tracer != nil && req.spanName != "" {
+		// Use the existing context (from SetContext or client context) as parent
+		parentCtx := req.Context()
+		var tracingCtx context.Context
+		tracingCtx, span := req.tracer.Start(parentCtx, req.spanName)
+		// Update request context to include tracing context
+		req.ctx = tracingCtx
+		defer func() {
+			// Record error if any
+			if lastErr != nil {
+				span.RecordError(lastErr)
+				span.SetStatus(codes.Error, lastErr.Error())
+			} else if resp != nil && resp.StatusCode >= 400 {
+				span.SetStatus(codes.Error, fmt.Sprintf("HTTP %d", resp.StatusCode))
+			} else {
+				span.SetStatus(codes.Ok, "")
+			}
+			span.End()
+		}()
+	}
 
 	maxAttempts := c.retryCount + 1
 	for attempt := 0; attempt < maxAttempts; attempt++ {

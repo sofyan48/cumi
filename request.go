@@ -6,6 +6,8 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+
+	"go.opentelemetry.io/otel/trace"
 )
 
 // Request represents an HTTP request
@@ -31,6 +33,8 @@ type Request struct {
 	errorResult    interface{}
 	downloadPath   string
 	uploadCallback func(written int64, total int64)
+	tracer         trace.Tracer
+	spanName       string
 }
 
 // SetContext sets the context for the request
@@ -232,6 +236,13 @@ func (r *Request) SetErrorResult(result interface{}) *Request {
 // SetError is an alias for SetErrorResult
 func (r *Request) SetError(result interface{}) *Request {
 	return r.SetErrorResult(result)
+}
+
+// SetTracer sets the tracer and span name for tracing HTTP request
+func (r *Request) SetTracer(tracer trace.Tracer, spanName string) *Request {
+	r.tracer = tracer
+	r.spanName = spanName
+	return r
 }
 
 // SetOutput sets the file path to save the response body

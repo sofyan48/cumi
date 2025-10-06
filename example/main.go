@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/sofyan48/cumi"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/trace"
 )
 
 // User represents a user object for JSON parsing examples
@@ -77,6 +79,9 @@ func main() {
 
 	// Example 14: Debug Mode
 	debugModeExample()
+
+	// Example 15: Tracer Example
+	tracerExample()
 
 	fmt.Println("\n=== All Examples Completed ===")
 }
@@ -466,5 +471,83 @@ func debugModeExample() {
 	}
 
 	fmt.Printf("   Debug request status: %s\n", resp.Status)
+	fmt.Println()
+}
+
+// SimpleTracer is a simple wrapper around OpenTelemetry tracer for demo purposes
+type SimpleTracer struct {
+	tracer trace.Tracer
+}
+
+// NewSimpleTracer creates a new simple tracer
+func NewSimpleTracer() *SimpleTracer {
+	// Create a simple noop tracer provider for demo
+	// In production, you would initialize proper OpenTelemetry setup
+	return &SimpleTracer{
+		tracer: otel.Tracer("cumi-example"),
+	}
+}
+
+// Tracer returns the underlying OpenTelemetry tracer
+func (t *SimpleTracer) Tracer() trace.Tracer {
+	return t.tracer
+}
+
+// Example 15: Tracer Example
+func tracerExample() {
+	fmt.Println("15. Tracer Example:")
+	fmt.Println("   Note: This example shows how to use SetTracer with OpenTelemetry")
+	fmt.Println("   In production, you should setup proper OpenTelemetry with exporters")
+
+	// Create a simple tracer
+	simpleTracer := NewSimpleTracer()
+	tracer := simpleTracer.Tracer()
+
+	client := cumi.NewClient()
+
+	// Example with tracer
+	fmt.Println("   a. Basic tracer usage:")
+	resp, err := client.Http().
+		SetTracer(tracer, "http-get-request").
+		Get("https://httpbin.org/get")
+
+	if err != nil {
+		log.Printf("   Error: %v", err)
+		return
+	}
+
+	fmt.Printf("   Request with tracer status: %s\n", resp.Status)
+
+	// Another example with tracer and different span name
+	fmt.Println("   b. POST request with tracer:")
+	resp2, err2 := client.Http().
+		SetTracer(tracer, "http-post-request").
+		SetBodyJSON(map[string]string{"key": "value"}).
+		Post("https://httpbin.org/post")
+
+	if err2 != nil {
+		log.Printf("   Error: %v", err2)
+		return
+	}
+
+	fmt.Printf("   POST request with tracer status: %s\n", resp2.Status)
+
+	// Example with SetContext and SetTracer together
+	fmt.Println("   c. Using SetContext with SetTracer:")
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	// Context from SetContext will be used as parent context for tracer
+	resp3, err3 := client.Http().
+		SetContext(ctx).
+		SetTracer(tracer, "http-get-with-timeout").
+		Get("https://httpbin.org/delay/2")
+
+	if err3 != nil {
+		log.Printf("   Error: %v", err3)
+	} else {
+		fmt.Printf("   Request with context and tracer status: %s\n", resp3.Status)
+	}
+
 	fmt.Println()
 }
