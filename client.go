@@ -682,6 +682,14 @@ func (c *Client) prepareRequest(req *Request) (*http.Request, error) {
 			body = strings.NewReader(s)
 		} else if r, ok := req.body.(io.Reader); ok {
 			body = r
+		} else {
+			// Auto-detect: if it's a struct, marshal as JSON by default
+			jsonData, err := c.jsonMarshal(req.body)
+			if err != nil {
+				return nil, fmt.Errorf("failed to marshal body as JSON: %w", err)
+			}
+			body = bytes.NewReader(jsonData)
+			contentType = "application/json"
 		}
 	} else if len(req.formData) > 0 || len(c.formData) > 0 {
 		// Merge form data
