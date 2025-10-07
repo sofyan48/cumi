@@ -4,7 +4,7 @@ A simple HTTP client library for Go
 ## Installation
 
 ```bash
-go get github.com/sofyan48/requester
+go get github.com/sofyan48/cumi
 ```
 
 ## Quick Start
